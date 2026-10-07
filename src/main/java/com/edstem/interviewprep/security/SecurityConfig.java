@@ -1,8 +1,6 @@
 package com.edstem.interviewprep.security;
 
-import static org.springframework.security.web.util.matcher.RegexRequestMatcher.regexMatcher;
-
-import com.edstem.interviewprep.entity.ShortUrl;
+import com.edstem.interviewprep.controller.RedirectController;
 import com.edstem.interviewprep.enums.Role;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +22,6 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_AUTH_PATHS = {"/api/auth/register", "/api/auth/login"};
     private static final String ADMIN_USERS_PATH = "/api/users";
-    private static final String SHORT_LINK_PATH_REGEX = "^/[A-Za-z0-9]{1," + ShortUrl.CODE_MAX_LENGTH + "}$";
 
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -38,10 +35,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
-                        .requestMatchers(
-                                regexMatcher(HttpMethod.GET, SHORT_LINK_PATH_REGEX),
-                                regexMatcher(HttpMethod.HEAD, SHORT_LINK_PATH_REGEX)).permitAll()
-                        .requestMatchers(HttpMethod.GET, ADMIN_USERS_PATH).hasRole(Role.ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, RedirectController.SHORT_CODE_PATH).permitAll()
+                        .requestMatchers(HttpMethod.HEAD, RedirectController.SHORT_CODE_PATH).permitAll()
+                        .requestMatchers(ADMIN_USERS_PATH).hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

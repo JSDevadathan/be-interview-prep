@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RedirectController {
 
-    private static final String SHORT_CODE_PATH = "/{code:[A-Za-z0-9]{1," + ShortUrl.CODE_MAX_LENGTH + "}}";
+    public static final String SHORT_CODE_PATH = "/{code:[A-Za-z0-9]{1," + ShortUrl.CODE_MAX_LENGTH + "}}";
 
     private final UrlShortenerService urlShortenerService;
 

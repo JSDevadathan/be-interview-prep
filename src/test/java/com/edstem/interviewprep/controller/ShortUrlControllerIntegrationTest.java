@@ -152,6 +152,18 @@ class ShortUrlControllerIntegrationTest {
 
     @Test
     @WithAnonymousUser
+    void shortLinkRedirectWithTrackingQueryWorksWithoutLogin() throws Exception {
+        shortUrlRepository.save(new ShortUrl("public2", LONG_URL, null, NOW));
+
+        mockMvc.perform(get("/{code}", "public2").queryParam("utm_source", "newsletter"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", LONG_URL));
+        mockMvc.perform(head("/{code}", "public2").queryParam("fbclid", "abc123"))
+                .andExpect(status().isFound());
+    }
+
+    @Test
+    @WithAnonymousUser
     void urlApiRequiresLogin() throws Exception {
         shorten("""
                 {"url": "%s"}

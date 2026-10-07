@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,16 +41,27 @@ public class UserService {
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
-        return UserResponse.from(createAccount(request.username(), request.password(), Role.USER));
+        String username = UserAccount.normalizeUsername(request.username());
+        if (userAccountRepository.existsByUsername(username)) {
+            throw new ResourceConflictException(RESOURCE_NAME, USERNAME_IDENTIFIER, username);
+        }
+        return UserResponse.from(createAccount(username, request.password(), Role.USER));
     }
 
     @Transactional
     public boolean createAdminIfAbsent(String username, String password) {
-        if (userAccountRepository.existsByUsername(UserAccount.normalizeUsername(username))) {
-            return false;
+        String normalizedUsername = UserAccount.normalizeUsername(username);
+        Optional<UserAccount> existing = userAccountRepository.findByUsername(normalizedUsername);
+        if (existing.isEmpty()) {
+            createAccount(normalizedUsername, password, Role.ADMIN);
+            return true;
         }
-        createAccount(username, password, Role.ADMIN);
-        return true;
+        if (existing.get().getRole() != Role.ADMIN) {
+            throw new IllegalStateException(
+                    "Configured admin username %s already belongs to a %s account"
+                            .formatted(normalizedUsername, existing.get().getRole()));
+        }
+        return false;
     }
 
     @Transactional(readOnly = true)
@@ -66,12 +78,8 @@ public class UserService {
 
     private UserAccount createAccount(String username, String password, Role role) {
         requirePasswordWithinHashLimit(password);
-        String normalizedUsername = UserAccount.normalizeUsername(username);
-        if (userAccountRepository.existsByUsername(normalizedUsername)) {
-            throw new ResourceConflictException(RESOURCE_NAME, USERNAME_IDENTIFIER, normalizedUsername);
-        }
         UserAccount account = new UserAccount(
-                normalizedUsername,
+                username,
                 passwordEncoder.encode(password),
                 role,
                 Instant.now(clock).truncatedTo(DATABASE_TIMESTAMP_PRECISION));

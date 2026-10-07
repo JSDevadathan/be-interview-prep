@@ -1,9 +1,11 @@
 package com.edstem.interviewprep.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -13,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.edstem.interviewprep.entity.UserAccount;
 import com.edstem.interviewprep.enums.Role;
 import com.edstem.interviewprep.repository.UserAccountRepository;
+import com.edstem.interviewprep.service.UserService;
 import com.jayway.jsonpath.JsonPath;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -106,6 +110,12 @@ class AuthIntegrationTest {
 
     @Autowired
     private MutableClock clock;
+
+    @Autowired
+    private UserService userService;
+
+    @Value("${app.security.jwt.secret}")
+    private String signingSecret;
 
     @BeforeEach
     void resetClock() {
@@ -254,7 +264,13 @@ class AuthIntegrationTest {
     @Test
     void tokenSignedWithAnotherKeyIsRejected() throws Exception {
         register(USERNAME, PASSWORD);
-        String forgedAdminToken = signWithForeignKey(USERNAME, List.of("ROLE_ADMIN"));
+        JwtClaimsSet adminClaims = JwtClaimsSet.builder()
+                .subject(USERNAME)
+                .issuedAt(NOW)
+                .expiresAt(NOW.plus(LOGIN_LIFETIME))
+                .claim("roles", List.of("ROLE_ADMIN"))
+                .build();
+        String forgedAdminToken = sign("a-different-secret-that-is-32-bytes-or-more", adminClaims);
 
         getWithToken(USERS_PATH, forgedAdminToken)
                 .andExpect(status().isUnauthorized())
@@ -289,6 +305,15 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void userCannotReachAdminEndpointWithHeadRequest() throws Exception {
+        register(USERNAME, PASSWORD);
+        String userToken = obtainToken(USERNAME, PASSWORD);
+
+        mockMvc.perform(head(USERS_PATH).header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminCanListAllUsers() throws Exception {
         register(USERNAME, PASSWORD);
         String adminToken = obtainToken(ADMIN_USERNAME, ADMIN_PASSWORD);
@@ -297,6 +322,33 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].username", containsInAnyOrder(ADMIN_USERNAME, USERNAME)))
                 .andExpect(jsonPath("$[*].role", containsInAnyOrder("ADMIN", "USER")));
+    }
+
+    @Test
+    void tokenWithoutExpiryIsRejected() throws Exception {
+        register(USERNAME, PASSWORD);
+        JwtClaimsSet claimsWithoutExpiry = JwtClaimsSet.builder()
+                .subject(USERNAME)
+                .issuedAt(NOW)
+                .claim("roles", List.of("ROLE_USER"))
+                .build();
+
+        getWithToken(PROFILE_PATH, sign(signingSecret, claimsWithoutExpiry))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void adminSeedingFailsWhenConfiguredUsernameBelongsToARegularUser() throws Exception {
+        register(USERNAME, PASSWORD);
+
+        assertThatThrownBy(() -> userService.createAdminIfAbsent(USERNAME, PASSWORD))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Configured admin username alice already belongs to a USER account");
+    }
+
+    @Test
+    void adminSeedingLeavesExistingAdminUnchanged() {
+        assertThat(userService.createAdminIfAbsent(ADMIN_USERNAME, "another-password")).isFalse();
     }
 
     private ResultActions register(String username, String password) throws Exception {
@@ -326,15 +378,9 @@ class AuthIntegrationTest {
         return mockMvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
     }
 
-    private static String signWithForeignKey(String subject, List<String> roles) {
-        byte[] foreignSecret = "a-different-secret-that-is-32-bytes-or-more".getBytes(StandardCharsets.UTF_8);
-        NimbusJwtEncoder encoder = new NimbusJwtEncoder(new ImmutableSecret<>(new SecretKeySpec(foreignSecret, "HmacSHA256")));
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .subject(subject)
-                .issuedAt(NOW)
-                .expiresAt(NOW.plus(LOGIN_LIFETIME))
-                .claim("roles", roles)
-                .build();
+    private static String sign(String secret, JwtClaimsSet claims) {
+        SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        NimbusJwtEncoder encoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
     }
