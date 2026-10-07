@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -27,6 +28,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final String FIELD_ERRORS_PROPERTY = "fieldErrors";
     private static final String VALIDATION_FAILED_DETAIL = "Request validation failed";
     private static final String INVALID_CREDENTIALS_DETAIL = "Invalid username or password";
+    private static final String RETRY_AFTER_SECONDS = "1";
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
@@ -105,6 +107,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("Request conflicted with a database constraint", exception);
         return ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT, "The request conflicted with existing data; retrying it is safe");
+    }
+
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    ResponseEntity<ProblemDetail> handleLockTimeout(PessimisticLockingFailureException exception) {
+        log.warn("Request timed out waiting for a database lock", exception);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE, "The resource is busy; retry the request shortly");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
+                .body(problem);
     }
 
     @ExceptionHandler(Exception.class)
