@@ -1,0 +1,91 @@
+package com.edstem.interviewprep.service;
+
+import com.edstem.interviewprep.common.error.FieldValidationException;
+import com.edstem.interviewprep.common.error.ResourceNotFoundException;
+import com.edstem.interviewprep.dto.CreateTaskRequest;
+import com.edstem.interviewprep.dto.TaskResponse;
+import com.edstem.interviewprep.dto.UpdateTaskRequest;
+import com.edstem.interviewprep.entity.Task;
+import com.edstem.interviewprep.enums.TaskStatus;
+import com.edstem.interviewprep.repository.TaskRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Objects;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class TaskService {
+
+    private static final String RESOURCE_NAME = "Task";
+    private static final TaskStatus DEFAULT_STATUS = TaskStatus.TODO;
+    private static final ChronoUnit DATABASE_TIMESTAMP_PRECISION = ChronoUnit.MICROS;
+    private static final String DUE_DATE_FIELD = "dueDate";
+    private static final String DUE_DATE_IN_PAST_MESSAGE = "dueDate must not be in the past";
+
+    private final TaskRepository taskRepository;
+    private final Clock clock;
+
+    public TaskService(TaskRepository taskRepository, Clock clock) {
+        this.taskRepository = taskRepository;
+        this.clock = clock;
+    }
+
+    @Transactional
+    public TaskResponse create(CreateTaskRequest request) {
+        Task task = new Task(
+                request.title(),
+                request.description(),
+                request.status() == null ? DEFAULT_STATUS : TaskStatus.valueOf(request.status()),
+                parseDueDate(request.dueDate()),
+                Instant.now(clock).truncatedTo(DATABASE_TIMESTAMP_PRECISION));
+        return TaskResponse.from(taskRepository.save(task));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskResponse> list(TaskStatus status) {
+        List<Task> tasks = status == null
+                ? taskRepository.findAllByOrderByIdAsc()
+                : taskRepository.findByStatusOrderByIdAsc(status);
+        return tasks.stream().map(TaskResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TaskResponse get(Long id) {
+        return TaskResponse.from(findTask(id));
+    }
+
+    @Transactional
+    public TaskResponse update(Long id, UpdateTaskRequest request) {
+        Task task = findTask(id);
+        LocalDate dueDate = parseDueDate(request.dueDate());
+        requireDueDateNotMovedIntoPast(task, dueDate);
+        task.update(request.title(), request.description(), TaskStatus.valueOf(request.status()), dueDate);
+        return TaskResponse.from(task);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        taskRepository.delete(findTask(id));
+    }
+
+    private void requireDueDateNotMovedIntoPast(Task task, LocalDate requestedDueDate) {
+        boolean isUnchanged = Objects.equals(requestedDueDate, task.getDueDate());
+        if (isUnchanged || requestedDueDate == null || !requestedDueDate.isBefore(LocalDate.now(clock))) {
+            return;
+        }
+        throw new FieldValidationException(DUE_DATE_FIELD, DUE_DATE_IN_PAST_MESSAGE);
+    }
+
+    private static LocalDate parseDueDate(String dueDate) {
+        return dueDate == null ? null : LocalDate.parse(dueDate);
+    }
+
+    private Task findTask(Long id) {
+        return taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(RESOURCE_NAME, id));
+    }
+}
