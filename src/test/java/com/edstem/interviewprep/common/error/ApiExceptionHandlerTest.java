@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.edstem.interviewprep.controller.TaskController;
 import com.edstem.interviewprep.service.TaskService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -33,5 +34,16 @@ class ApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.title").value("Internal Server Error"))
                 .andExpect(jsonPath("$.detail").value("An unexpected error occurred"))
                 .andExpect(jsonPath("$.instance").value("/api/tasks"));
+    }
+
+    @Test
+    void constraintViolationReturnsRetryableConflictWithoutDatabaseDetails() throws Exception {
+        given(taskService.list(any()))
+                .willThrow(new DataIntegrityViolationException("Unique index violation: PUBLIC.SHORT_URLS(CODE)"));
+
+        mockMvc.perform(get("/api/tasks"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("The request conflicted with existing data; retrying it is safe"));
     }
 }
