@@ -1,21 +1,17 @@
-## Summary
-
 Closes #
 
-## Changes
+## Problem
 
--
+What this PR solves (1–2 lines).
 
-## How to Test
+## Approach
 
-1.
+Key classes and how a request flows through them.
 
-## Risk & Rollback
+## Decisions & trade-offs
 
-## Checklist
+What you chose, and why over the alternatives.
 
-- [ ] Lint, format, tests and build pass locally
-- [ ] Tests added or updated for new or changed behaviour
-- [ ] No unwanted comments, debug code, dead code or secrets
-- [ ] Only changes related to the linked issue
-- [ ] Docs, config or migrations updated (if applicable)
+## How to test
+
+Commands, sample requests, test classes.
