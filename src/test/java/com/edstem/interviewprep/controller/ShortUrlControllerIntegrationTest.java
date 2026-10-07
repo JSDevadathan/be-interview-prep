@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -96,7 +97,7 @@ class ShortUrlControllerIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"not a url", "ftp://example.com/file", "javascript:alert(1)", "/relative/path", "https://"})
+    @ValueSource(strings = {"not a url", "ftp://example.com/file", "javascript:alert(1)", "/relative/path", "https://", "https://trusted.com@evil.com/login"})
     void shortenRejectsUrlsThatAreNotAbsoluteHttp(String invalidUrl) throws Exception {
         shorten("""
                 {"url": "%s"}
@@ -147,6 +148,18 @@ class ShortUrlControllerIntegrationTest {
                 .andExpect(jsonPath("$.originalUrl").value(LONG_URL))
                 .andExpect(jsonPath("$.visitCount").value(3))
                 .andExpect(jsonPath("$.createdAt").value("2026-01-15T10:00:00Z"));
+    }
+
+    @Test
+    void headRequestRedirectsWithoutCountingAVisit() throws Exception {
+        String code = createLink(LONG_URL);
+
+        mockMvc.perform(head("/{code}", code))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", LONG_URL));
+
+        mockMvc.perform(get("/api/urls/{code}/stats", code))
+                .andExpect(jsonPath("$.visitCount").value(0));
     }
 
     @Test

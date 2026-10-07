@@ -44,13 +44,14 @@ public class UrlShortenerService {
 
     @Transactional
     public String resolveAndCountVisit(String code) {
-        ShortUrl shortUrl = findByCode(code);
-        if (shortUrl.isExpiredOn(LocalDate.now(clock))) {
-            throw new ResourceGoneException(
-                    "Short URL with code %s expired on %s".formatted(code, shortUrl.getExpiryDate()));
-        }
+        ShortUrl shortUrl = findActiveByCode(code);
         shortUrlRepository.incrementVisitCount(shortUrl.getId());
         return shortUrl.getOriginalUrl();
+    }
+
+    @Transactional(readOnly = true)
+    public String resolveWithoutCounting(String code) {
+        return findActiveByCode(code).getOriginalUrl();
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +68,15 @@ public class UrlShortenerService {
         }
         throw new IllegalStateException(
                 "Could not generate a unique short code after %d attempts".formatted(MAX_CODE_ATTEMPTS));
+    }
+
+    private ShortUrl findActiveByCode(String code) {
+        ShortUrl shortUrl = findByCode(code);
+        if (shortUrl.isExpiredOn(LocalDate.now(clock))) {
+            throw new ResourceGoneException(
+                    "Short URL with code %s expired on %s".formatted(code, shortUrl.getExpiryDate()));
+        }
+        return shortUrl;
     }
 
     private ShortUrl findByCode(String code) {

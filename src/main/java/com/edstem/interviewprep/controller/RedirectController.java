@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,9 +25,17 @@ public class RedirectController {
 
     @GetMapping(SHORT_CODE_PATH)
     public ResponseEntity<Void> redirect(@PathVariable String code) {
-        URI target = URI.create(urlShortenerService.resolveAndCountVisit(code));
+        return redirectTo(urlShortenerService.resolveAndCountVisit(code));
+    }
+
+    @RequestMapping(value = SHORT_CODE_PATH, method = RequestMethod.HEAD)
+    public ResponseEntity<Void> redirectWithoutCounting(@PathVariable String code) {
+        return redirectTo(urlShortenerService.resolveWithoutCounting(code));
+    }
+
+    private static ResponseEntity<Void> redirectTo(String originalUrl) {
         return ResponseEntity.status(HttpStatus.FOUND)
-                .location(target)
+                .location(URI.create(originalUrl))
                 .cacheControl(CacheControl.noStore())
                 .build();
     }
