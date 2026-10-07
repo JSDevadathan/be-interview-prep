@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
@@ -48,6 +50,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             return super.handleHttpMessageNotReadable(exception, headers, status, request);
         }
         List<FieldErrorDetail> fieldErrors = List.of(FieldErrorDetail.from(mismatch));
+        return handleExceptionInternal(exception, validationProblem(status, fieldErrors), headers, status, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        if (!(exception instanceof MethodArgumentTypeMismatchException mismatch)) {
+            return super.handleTypeMismatch(exception, headers, status, request);
+        }
+        List<FieldErrorDetail> fieldErrors =
+                List.of(FieldErrorDetail.forInvalidValue(mismatch.getName(), mismatch.getRequiredType()));
         return handleExceptionInternal(exception, validationProblem(status, fieldErrors), headers, status, request);
     }
 

@@ -21,7 +21,11 @@ public record FieldErrorDetail(String field, String message) {
         String field = exception.getPath().stream()
                 .map(FieldErrorDetail::pathSegment)
                 .collect(Collectors.joining("."));
-        return new FieldErrorDetail(field, field + " " + expectedValueDescription(exception.getTargetType()));
+        return forInvalidValue(field, exception.getTargetType());
+    }
+
+    static FieldErrorDetail forInvalidValue(String field, Class<?> expectedType) {
+        return new FieldErrorDetail(field, field + " " + expectedValueDescription(expectedType));
     }
 
     private static String pathSegment(JsonMappingException.Reference reference) {
