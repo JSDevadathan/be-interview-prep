@@ -20,7 +20,8 @@ public class HttpUrlValidator implements ConstraintValidator<HttpUrl, String> {
             URI uri = new URI(value);
             return uri.getScheme() != null
                     && ALLOWED_SCHEMES.contains(uri.getScheme().toLowerCase(Locale.ROOT))
-                    && uri.getHost() != null;
+                    && uri.getHost() != null
+                    && uri.getUserInfo() == null;
         } catch (URISyntaxException malformedUrl) {
             return false;
         }

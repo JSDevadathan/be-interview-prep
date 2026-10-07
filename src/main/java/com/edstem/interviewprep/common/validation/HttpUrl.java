@@ -8,7 +8,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The annotated string must be an absolute {@code http} or {@code https} URL with a host. {@code null} is valid.
+ * The annotated string must be an absolute {@code http} or {@code https} URL with an ASCII (or punycode) host
+ * and no user info, so links such as {@code https://trusted.com@evil.com} are rejected. {@code null} is valid.
  */
 @Constraint(validatedBy = HttpUrlValidator.class)
 @Target(ElementType.FIELD)
