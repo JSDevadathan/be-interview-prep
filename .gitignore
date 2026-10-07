@@ -1,0 +1,41 @@
+# Claude Code harness (kept local, not committed)
+.claude/
+CLAUDE.local.md
+
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build output
+dist/
+build/
+out/
+target/
+.next/
+.nuxt/
+coverage/
+*.log
+
+# Gradle / Maven
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+.DS_Store
+Thumbs.db

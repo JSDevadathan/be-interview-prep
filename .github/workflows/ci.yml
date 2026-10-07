@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Conventional Commit title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$TITLE" | grep -Eq '^(feat|fix|refactor|perf|test|docs|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{1,72}$' \
+            || { echo "PR title must follow Conventional Commits: <type>(<scope>): <summary>"; exit 1; }
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect stack
+        id: stack
+        run: |
+          if   [ -f package.json ];   then echo "kind=node"   >> "$GITHUB_OUTPUT"
+          elif [ -f pom.xml ];        then echo "kind=maven"  >> "$GITHUB_OUTPUT"
+          elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then echo "kind=gradle" >> "$GITHUB_OUTPUT"
+          elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then echo "kind=python" >> "$GITHUB_OUTPUT"
+          elif [ -f go.mod ];         then echo "kind=go"     >> "$GITHUB_OUTPUT"
+          else echo "kind=none" >> "$GITHUB_OUTPUT"; fi
+
+      - if: steps.stack.outputs.kind == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
+      - if: steps.stack.outputs.kind == 'node'
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run lint --if-present
+          npm test --if-present
+          npm run build --if-present
+
+      - if: steps.stack.outputs.kind == 'maven' || steps.stack.outputs.kind == 'gradle'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: ${{ steps.stack.outputs.kind == 'maven' && 'maven' || '' }}
+      - if: steps.stack.outputs.kind == 'maven'
+        run: |
+          if [ -f mvnw ]; then chmod +x mvnw && ./mvnw -B verify; else mvn -B verify; fi
+      - if: steps.stack.outputs.kind == 'gradle'
+        uses: gradle/actions/setup-gradle@v4
+      - if: steps.stack.outputs.kind == 'gradle'
+        run: |
+          if [ -f gradlew ]; then chmod +x gradlew && ./gradlew build; else gradle build; fi
+
+      - if: steps.stack.outputs.kind == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: steps.stack.outputs.kind == 'python'
+        run: |
+          if [ -f pyproject.toml ]; then pip install -e ".[dev]"; else pip install -r requirements.txt; fi
+          if command -v ruff >/dev/null; then ruff check .; fi
+          pytest
+
+      - if: steps.stack.outputs.kind == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - if: steps.stack.outputs.kind == 'go'
+        run: |
+          go vet ./...
+          go test ./...
+          go build ./...
+
+      - if: steps.stack.outputs.kind == 'none'
+        run: echo "No recognised build file yet; skipping build."
