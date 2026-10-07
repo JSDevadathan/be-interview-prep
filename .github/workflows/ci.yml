@@ -68,7 +68,7 @@ jobs:
           if [ -f gradlew ]; then chmod +x gradlew && ./gradlew build; else gradle build; fi
 
       - if: steps.stack.outputs.kind == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - if: steps.stack.outputs.kind == 'python'
