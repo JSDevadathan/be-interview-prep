@@ -2,6 +2,7 @@ package com.edstem.interviewprep.service;
 
 import com.edstem.interviewprep.common.CacheConfig;
 import com.edstem.interviewprep.common.error.FieldValidationException;
+import com.edstem.interviewprep.common.error.ResourceConflictException;
 import com.edstem.interviewprep.common.error.ResourceNotFoundException;
 import com.edstem.interviewprep.dto.PageResponse;
 import com.edstem.interviewprep.dto.ProductFilter;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -63,6 +65,27 @@ public class ProductService {
     @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#id")
     public void delete(Long id) {
         productRepository.delete(findProduct(id));
+    }
+
+    /**
+     * Takes stock in one conditional update, so the check and the decrement cannot be split by a concurrent order.
+     * It must join the caller's transaction, so a later failure in the same order puts this stock back.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#productId")
+    public void reserveStock(Long productId, int quantity) {
+        if (productRepository.decrementStockIfAvailable(productId, quantity) > 0) {
+            return;
+        }
+        Product product = findProduct(productId);
+        throw new ResourceConflictException("Insufficient stock for product %d: requested %d, available %d"
+                .formatted(productId, quantity, product.getStock()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#productId")
+    public void releaseStock(Long productId, int quantity) {
+        productRepository.incrementStock(productId, quantity);
     }
 
     /**
