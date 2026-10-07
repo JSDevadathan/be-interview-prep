@@ -1,5 +1,6 @@
 # Claude Code harness (kept local, not committed)
 .claude/
+CLAUDE.md
 CLAUDE.local.md
 
 # Secrets and environment
