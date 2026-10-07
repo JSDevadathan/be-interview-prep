@@ -1,10 +1,13 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.service;
 
 import com.edstem.interviewprep.common.error.FieldValidationException;
 import com.edstem.interviewprep.common.error.ResourceNotFoundException;
-import com.edstem.interviewprep.task.dto.CreateTaskRequest;
-import com.edstem.interviewprep.task.dto.TaskResponse;
-import com.edstem.interviewprep.task.dto.UpdateTaskRequest;
+import com.edstem.interviewprep.dto.CreateTaskRequest;
+import com.edstem.interviewprep.dto.TaskResponse;
+import com.edstem.interviewprep.dto.UpdateTaskRequest;
+import com.edstem.interviewprep.entity.Task;
+import com.edstem.interviewprep.enums.TaskStatus;
+import com.edstem.interviewprep.repository.TaskRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;

@@ -1,5 +1,7 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.repository;
 
+import com.edstem.interviewprep.entity.Task;
+import com.edstem.interviewprep.enums.TaskStatus;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 

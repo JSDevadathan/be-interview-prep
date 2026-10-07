@@ -1,5 +1,6 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.entity;
 
+import com.edstem.interviewprep.enums.TaskStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

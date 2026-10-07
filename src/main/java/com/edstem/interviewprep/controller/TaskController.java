@@ -1,8 +1,10 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.controller;
 
-import com.edstem.interviewprep.task.dto.CreateTaskRequest;
-import com.edstem.interviewprep.task.dto.TaskResponse;
-import com.edstem.interviewprep.task.dto.UpdateTaskRequest;
+import com.edstem.interviewprep.dto.CreateTaskRequest;
+import com.edstem.interviewprep.dto.TaskResponse;
+import com.edstem.interviewprep.dto.UpdateTaskRequest;
+import com.edstem.interviewprep.enums.TaskStatus;
+import com.edstem.interviewprep.service.TaskService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;

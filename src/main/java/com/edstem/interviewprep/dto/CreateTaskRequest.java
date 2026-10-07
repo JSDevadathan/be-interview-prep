@@ -1,7 +1,7 @@
-package com.edstem.interviewprep.task.dto;
+package com.edstem.interviewprep.dto;
 
-import com.edstem.interviewprep.task.Task;
-import com.edstem.interviewprep.task.TaskStatus;
+import com.edstem.interviewprep.entity.Task;
+import com.edstem.interviewprep.enums.TaskStatus;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

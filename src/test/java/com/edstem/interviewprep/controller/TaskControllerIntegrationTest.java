@@ -1,4 +1,4 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.controller;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -10,6 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.edstem.interviewprep.entity.Task;
+import com.edstem.interviewprep.enums.TaskStatus;
+import com.edstem.interviewprep.repository.TaskRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Clock;
 import java.time.Instant;

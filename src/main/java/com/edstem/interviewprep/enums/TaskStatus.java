@@ -1,4 +1,4 @@
-package com.edstem.interviewprep.task;
+package com.edstem.interviewprep.enums;
 
 public enum TaskStatus {
     TODO,
