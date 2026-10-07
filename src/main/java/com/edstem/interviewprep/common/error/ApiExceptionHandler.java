@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,6 +26,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String FIELD_ERRORS_PROPERTY = "fieldErrors";
     private static final String VALIDATION_FAILED_DETAIL = "Request validation failed";
+    private static final String INVALID_CREDENTIALS_DETAIL = "Invalid username or password";
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
@@ -81,6 +83,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResourceGoneException.class)
     ProblemDetail handleResourceGone(ResourceGoneException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.GONE, exception.getMessage());
+    }
+
+    @ExceptionHandler(ResourceConflictException.class)
+    ProblemDetail handleResourceConflict(ResourceConflictException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    ProblemDetail handleBadCredentials() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_DETAIL);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
