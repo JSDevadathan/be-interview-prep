@@ -1,12 +1,11 @@
 # Harness
 
-A project starter with engineering standards, GitHub templates and CI for building production-quality code with [Claude Code](https://claude.com/claude-code).
+A project starter with GitHub templates, CI and repository conventions for building production-quality code.
 
 ## What's Included
 
 | Path | Purpose |
 |------|---------|
-| `CLAUDE.md` | Engineering standards: code quality, comments policy, git workflow and definition of done |
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist linked to an issue |
 | `.github/ISSUE_TEMPLATE/` | Bug and feature forms that require acceptance criteria |
 | `.github/workflows/ci.yml` | PR title check and stack-detected lint, test and build (Node, Maven, Gradle, Python, Go) |
@@ -15,8 +14,7 @@ A project starter with engineering standards, GitHub templates and CI for buildi
 
 ## Getting Started
 
-1. Fill in the **Project Commands** table in `CLAUDE.md` for your stack.
-2. Enable branch protection on `main`: require a pull request, require the `CI` checks to pass, and allow squash merges only.
+1. Enable branch protection on `main`: require a pull request, require the `CI` checks to pass, and allow squash merges only.
 
 ## Workflow
 
