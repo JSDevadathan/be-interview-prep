@@ -9,7 +9,6 @@ A project starter with GitHub templates, CI and repository conventions for build
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist linked to an issue |
 | `.github/ISSUE_TEMPLATE/` | Bug and feature forms that require acceptance criteria |
 | `.github/workflows/ci.yml` | PR title check and stack-detected lint, test and build (Node, Maven, Gradle, Python, Go) |
-| `.github/dependabot.yml` | Weekly updates for GitHub Actions versions |
 | `.editorconfig`, `.gitattributes` | Consistent formatting and line endings |
 
 ## Getting Started
