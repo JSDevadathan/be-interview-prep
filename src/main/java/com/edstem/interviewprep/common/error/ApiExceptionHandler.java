@@ -90,6 +90,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    ProblemDetail handleIdempotencyKeyReused(IdempotencyKeyReusedException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     ProblemDetail handleBadCredentials() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_DETAIL);
