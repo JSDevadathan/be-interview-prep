@@ -77,6 +77,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(ResourceGoneException.class)
+    ProblemDetail handleResourceGone(ResourceGoneException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.GONE, exception.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception exception) {
         log.error("Unhandled exception while processing request", exception);
