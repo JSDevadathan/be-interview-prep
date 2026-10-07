@@ -2,7 +2,6 @@ package com.edstem.interviewprep.task.dto;
 
 import com.edstem.interviewprep.task.Task;
 import com.edstem.interviewprep.task.TaskStatus;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -19,6 +18,5 @@ public record UpdateTaskRequest(
         @NotNull(message = "status is required")
         TaskStatus status,
 
-        @FutureOrPresent(message = "dueDate must not be in the past")
         LocalDate dueDate) {
 }
