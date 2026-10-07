@@ -151,6 +151,50 @@ class TaskControllerIntegrationTest {
     }
 
     @Test
+    void createReportsEveryInvalidFieldInOneResponse() throws Exception {
+        postTask("""
+                {"title": " ", "status": "FINISHED", "dueDate": "not-a-date"}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors", hasSize(3)))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("dueDate"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("dueDate must be a date in yyyy-MM-dd format"))
+                .andExpect(jsonPath("$.fieldErrors[1].field").value("status"))
+                .andExpect(jsonPath("$.fieldErrors[1].message").value("status must be one of [TODO, IN_PROGRESS, DONE]"))
+                .andExpect(jsonPath("$.fieldErrors[2].field").value("title"))
+                .andExpect(jsonPath("$.fieldErrors[2].message").value("title is required"));
+    }
+
+    @Test
+    void createRejectsNumericDueDateInsteadOfReadingItAsDays() throws Exception {
+        postTask("""
+                {"title": "Numeric date", "dueDate": 30000}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("dueDate"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("dueDate must be a date in yyyy-MM-dd format"));
+    }
+
+    @Test
+    void createRejectsImpossibleCalendarDate() throws Exception {
+        postTask("""
+                {"title": "No such day", "dueDate": "2026-02-30"}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("dueDate must be a date in yyyy-MM-dd format"));
+    }
+
+    @Test
+    void createRejectsObjectAsTitleWithFieldMessage() throws Exception {
+        postTask("""
+                {"title": {"text": "nested"}}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("title"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("title has an invalid value"));
+    }
+
+    @Test
     void createRejectsInvalidDateWithFieldMessage() throws Exception {
         postTask("""
                 {"title": "Bad date", "dueDate": "2026-13-45"}
@@ -203,7 +247,9 @@ class TaskControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.title").value("Bad Request"))
-                .andExpect(jsonPath("$.instance").value("/api/tasks"));
+                .andExpect(jsonPath("$.instance").value("/api/tasks"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("status"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("status must be one of [TODO, IN_PROGRESS, DONE]"));
     }
 
     @Test
@@ -237,6 +283,31 @@ class TaskControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("DONE"))
                 .andExpect(jsonPath("$.dueDate").value(YESTERDAY));
+    }
+
+    @Test
+    void updateRejectsMovingOverdueDueDateToAnotherPastDate() throws Exception {
+        Task overdue = taskRepository.save(
+                new Task("Overdue", null, TaskStatus.TODO, LocalDate.parse(YESTERDAY), NOW));
+
+        putTask(overdue.getId(), """
+                {"title": "Overdue", "status": "TODO", "dueDate": "%s"}
+                """.formatted(LAST_WEEK))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("dueDate"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("dueDate must not be in the past"));
+    }
+
+    @Test
+    void updateAllowsClearingOverdueDueDate() throws Exception {
+        Task overdue = taskRepository.save(
+                new Task("Overdue", null, TaskStatus.TODO, LocalDate.parse(YESTERDAY), NOW));
+
+        putTask(overdue.getId(), """
+                {"title": "Overdue", "status": "TODO"}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dueDate").doesNotExist());
     }
 
     @Test
