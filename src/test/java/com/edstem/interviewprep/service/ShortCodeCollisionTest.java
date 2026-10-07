@@ -19,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class ShortCodeCollisionTest {
 
     private static final String TAKEN_CODE = "taken01";
+    private static final Instant CREATED_AT = Instant.parse("2026-01-15T10:00:00Z");
     private static final String BASE_URL = "http://localhost";
     private static final ShortenUrlRequest REQUEST = new ShortenUrlRequest("https://example.com/new", null);
 
@@ -33,7 +34,7 @@ class ShortCodeCollisionTest {
 
     @BeforeEach
     void saveLinkWithTakenCode() {
-        shortUrlRepository.save(new ShortUrl(TAKEN_CODE, "https://example.com/old", null, Instant.now()));
+        shortUrlRepository.save(new ShortUrl(TAKEN_CODE, "https://example.com/old", null, CREATED_AT));
     }
 
     @AfterEach

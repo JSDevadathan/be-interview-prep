@@ -4,14 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.edstem.interviewprep.entity.ShortUrl;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ShortCodeGeneratorTest {
 
     private static final int SAMPLE_SIZE = 10_000;
+    private static final long SEED = 42L;
 
-    private final ShortCodeGenerator generator = new ShortCodeGenerator();
+    private final ShortCodeGenerator generator = new ShortCodeGenerator(new Random(SEED));
 
     @Test
     void generatesUrlSafeCodesWithinTheMaximumLength() {

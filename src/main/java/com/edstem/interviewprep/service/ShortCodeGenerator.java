@@ -1,6 +1,7 @@
 package com.edstem.interviewprep.service;
 
 import java.security.SecureRandom;
+import java.util.random.RandomGenerator;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -10,7 +11,15 @@ public class ShortCodeGenerator {
 
     private static final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-    private final SecureRandom random = new SecureRandom();
+    private final RandomGenerator random;
+
+    public ShortCodeGenerator() {
+        this(new SecureRandom());
+    }
+
+    ShortCodeGenerator(RandomGenerator random) {
+        this.random = random;
+    }
 
     public String generate() {
         StringBuilder code = new StringBuilder(CODE_LENGTH);
