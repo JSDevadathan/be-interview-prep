@@ -87,7 +87,7 @@ To run the full build, including tests, as CI does:
 | 1 | Task Manager API | [#15](https://github.com/JSDevadathan/be-interview-prep/pull/15) |
 | 2 | URL Shortener | [#16](https://github.com/JSDevadathan/be-interview-prep/pull/16) |
 | 3 | Authentication & Roles | [#17](https://github.com/JSDevadathan/be-interview-prep/pull/17) |
-| 4 | Product Catalog | |
+| 4 | Product Catalog | [#18](https://github.com/JSDevadathan/be-interview-prep/pull/18) |
 | 5 | Order Service | |
 
 **Video:**
