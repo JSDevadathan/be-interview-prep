@@ -3,11 +3,13 @@ package com.edstem.interviewprep.common.error;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.edstem.interviewprep.controller.TaskController;
 import com.edstem.interviewprep.service.TaskService;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,5 +49,15 @@ class ApiExceptionHandlerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.detail").value("The request conflicted with existing data; retrying it is safe"));
+    }
+
+    @Test
+    void lockTimeoutReturnsRetryableServiceUnavailable() throws Exception {
+        given(taskService.list(any())).willThrow(new CannotAcquireLockException("Timeout trying to lock table"));
+
+        mockMvc.perform(get("/api/tasks"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Retry-After", "1"))
+                .andExpect(jsonPath("$.detail").value("The resource is busy; retry the request shortly"));
     }
 }

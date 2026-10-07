@@ -2,6 +2,7 @@ package com.edstem.interviewprep.service;
 
 import com.edstem.interviewprep.common.CacheConfig;
 import com.edstem.interviewprep.common.error.FieldValidationException;
+import com.edstem.interviewprep.common.error.ResourceConflictException;
 import com.edstem.interviewprep.common.error.ResourceNotFoundException;
 import com.edstem.interviewprep.dto.PageResponse;
 import com.edstem.interviewprep.dto.ProductFilter;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -51,10 +53,15 @@ public class ProductService {
         return ProductResponse.from(findProduct(id));
     }
 
+    /**
+     * The row lock makes a concurrent order wait for this update instead of having its reservation overwritten by
+     * the stock value read before it committed.
+     */
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#id")
     public ProductResponse update(Long id, UpdateProductRequest request) {
-        Product product = findProduct(id);
+        Product product = productRepository.findForUpdateById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(RESOURCE_NAME, id));
         product.update(request.name(), request.category(), request.price(), request.stock(), request.rating());
         return ProductResponse.from(product);
     }
@@ -62,7 +69,34 @@ public class ProductService {
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#id")
     public void delete(Long id) {
-        productRepository.delete(findProduct(id));
+        Product product = findProduct(id);
+        if (productRepository.hasOrders(id)) {
+            throw new ResourceConflictException("Product %d has orders and cannot be deleted".formatted(id));
+        }
+        productRepository.delete(product);
+    }
+
+    /**
+     * Takes stock in one conditional update, so the check and the decrement cannot be split by a concurrent order.
+     * It must join the caller's transaction, so a later failure in the same order puts this stock back.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#productId")
+    public void reserveStock(Long productId, int quantity) {
+        if (productRepository.decrementStockIfAvailable(productId, quantity) > 0) {
+            return;
+        }
+        if (!productRepository.existsById(productId)) {
+            throw new ResourceNotFoundException(RESOURCE_NAME, productId);
+        }
+        throw new ResourceConflictException(
+                "Insufficient stock for product %d: requested %d".formatted(productId, quantity));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#productId")
+    public void releaseStock(Long productId, int quantity) {
+        productRepository.incrementStock(productId, quantity);
     }
 
     /**
