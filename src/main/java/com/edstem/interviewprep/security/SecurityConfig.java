@@ -1,5 +1,6 @@
 package com.edstem.interviewprep.security;
 
+import com.edstem.interviewprep.controller.ProductController;
 import com.edstem.interviewprep.controller.RedirectController;
 import com.edstem.interviewprep.enums.Role;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, RedirectController.SHORT_CODE_PATH).permitAll()
                         .requestMatchers(HttpMethod.HEAD, RedirectController.SHORT_CODE_PATH).permitAll()
                         .requestMatchers(ADMIN_USERS_PATH).hasRole(Role.ADMIN.name())
+                        .requestMatchers(HttpMethod.PUT, ProductController.PRODUCT_PATH).hasRole(Role.ADMIN.name())
+                        .requestMatchers(HttpMethod.DELETE, ProductController.PRODUCT_PATH).hasRole(Role.ADMIN.name())
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
