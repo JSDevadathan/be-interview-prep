@@ -6,6 +6,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -80,6 +81,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResourceGoneException.class)
     ProblemDetail handleResourceGone(ResourceGoneException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.GONE, exception.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        log.warn("Request conflicted with a database constraint", exception);
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, "The request conflicted with existing data; retrying it is safe");
     }
 
     @ExceptionHandler(Exception.class)
