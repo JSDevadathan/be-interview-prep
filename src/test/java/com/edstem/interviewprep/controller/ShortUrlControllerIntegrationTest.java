@@ -29,12 +29,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(ShortUrlControllerIntegrationTest.FixedClockConfig.class)
+@WithMockUser
 class ShortUrlControllerIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-01-15T10:00:00Z");
@@ -133,6 +136,40 @@ class ShortUrlControllerIntegrationTest {
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", LONG_URL))
                 .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void shortLinkRedirectWorksWithoutLogin() throws Exception {
+        shortUrlRepository.save(new ShortUrl("public1", LONG_URL, null, NOW));
+
+        mockMvc.perform(get("/{code}", "public1"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", LONG_URL));
+        mockMvc.perform(head("/{code}", "public1"))
+                .andExpect(status().isFound());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void shortLinkRedirectWithTrackingQueryWorksWithoutLogin() throws Exception {
+        shortUrlRepository.save(new ShortUrl("public2", LONG_URL, null, NOW));
+
+        mockMvc.perform(get("/{code}", "public2").queryParam("utm_source", "newsletter"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", LONG_URL));
+        mockMvc.perform(head("/{code}", "public2").queryParam("fbclid", "abc123"))
+                .andExpect(status().isFound());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void urlApiRequiresLogin() throws Exception {
+        shorten("""
+                {"url": "%s"}
+                """.formatted(LONG_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
     }
 
     @Test
