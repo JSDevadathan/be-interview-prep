@@ -1,11 +1,12 @@
 package com.edstem.interviewprep.dto;
 
+import com.edstem.interviewprep.common.validation.EnumValue;
+import com.edstem.interviewprep.common.validation.IsoDate;
 import com.edstem.interviewprep.entity.Task;
 import com.edstem.interviewprep.enums.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDate;
 
 public record UpdateTaskRequest(
         @NotBlank(message = "title is required")
@@ -16,7 +17,9 @@ public record UpdateTaskRequest(
         String description,
 
         @NotNull(message = "status is required")
-        TaskStatus status,
+        @EnumValue(enumClass = TaskStatus.class, message = "status must be one of {allowedValues}")
+        String status,
 
-        LocalDate dueDate) {
+        @IsoDate(message = "dueDate must be a date in yyyy-MM-dd format")
+        String dueDate) {
 }

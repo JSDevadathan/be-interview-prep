@@ -39,8 +39,8 @@ public class TaskService {
         Task task = new Task(
                 request.title(),
                 request.description(),
-                Objects.requireNonNullElse(request.status(), DEFAULT_STATUS),
-                request.dueDate(),
+                request.status() == null ? DEFAULT_STATUS : TaskStatus.valueOf(request.status()),
+                parseDueDate(request.dueDate()),
                 Instant.now(clock).truncatedTo(DATABASE_TIMESTAMP_PRECISION));
         return TaskResponse.from(taskRepository.save(task));
     }
@@ -61,8 +61,9 @@ public class TaskService {
     @Transactional
     public TaskResponse update(Long id, UpdateTaskRequest request) {
         Task task = findTask(id);
-        requireDueDateNotMovedIntoPast(task, request.dueDate());
-        task.update(request.title(), request.description(), request.status(), request.dueDate());
+        LocalDate dueDate = parseDueDate(request.dueDate());
+        requireDueDateNotMovedIntoPast(task, dueDate);
+        task.update(request.title(), request.description(), TaskStatus.valueOf(request.status()), dueDate);
         return TaskResponse.from(task);
     }
 
@@ -77,6 +78,10 @@ public class TaskService {
             return;
         }
         throw new FieldValidationException(DUE_DATE_FIELD, DUE_DATE_IN_PAST_MESSAGE);
+    }
+
+    private static LocalDate parseDueDate(String dueDate) {
+        return dueDate == null ? null : LocalDate.parse(dueDate);
     }
 
     private Task findTask(Long id) {

@@ -1,11 +1,12 @@
 package com.edstem.interviewprep.dto;
 
+import com.edstem.interviewprep.common.validation.EnumValue;
+import com.edstem.interviewprep.common.validation.IsoDate;
+import com.edstem.interviewprep.common.validation.NotPastDate;
 import com.edstem.interviewprep.entity.Task;
 import com.edstem.interviewprep.enums.TaskStatus;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDate;
 
 public record CreateTaskRequest(
         @NotBlank(message = "title is required")
@@ -15,8 +16,10 @@ public record CreateTaskRequest(
         @Size(max = Task.DESCRIPTION_MAX_LENGTH, message = "description must be at most " + Task.DESCRIPTION_MAX_LENGTH + " characters")
         String description,
 
-        TaskStatus status,
+        @EnumValue(enumClass = TaskStatus.class, message = "status must be one of {allowedValues}")
+        String status,
 
-        @FutureOrPresent(message = "dueDate must not be in the past")
-        LocalDate dueDate) {
+        @IsoDate(message = "dueDate must be a date in yyyy-MM-dd format")
+        @NotPastDate(message = "dueDate must not be in the past")
+        String dueDate) {
 }
