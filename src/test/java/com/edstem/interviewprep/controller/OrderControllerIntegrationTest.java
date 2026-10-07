@@ -2,6 +2,7 @@ package com.edstem.interviewprep.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -123,7 +124,7 @@ class OrderControllerIntegrationTest {
         placeOrder("too-many", items(lamp, 3))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail")
-                        .value("Insufficient stock for product %d: requested 3, available 2".formatted(lamp)));
+                        .value("Insufficient stock for product %d: requested 3".formatted(lamp)));
 
         assertThat(stockOf(lamp)).isEqualTo(2);
         assertThat(orderRepository.count()).isZero();
@@ -228,6 +229,19 @@ class OrderControllerIntegrationTest {
         placeOrder("cached", items(lamp, 2)).andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/products/{id}", lamp)).andExpect(jsonPath("$.stock").value(3));
+    }
+
+    @Test
+    @WithMockUser(username = CUSTOMER, roles = "ADMIN")
+    void productWithOrdersCannotBeDeleted() throws Exception {
+        long lamp = createProduct(5);
+        placeOrder("keep-product", items(lamp, 1)).andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/products/{id}", lamp))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Product %d has orders and cannot be deleted".formatted(lamp)));
+
+        assertThat(productRepository.existsById(lamp)).isTrue();
     }
 
     @Test

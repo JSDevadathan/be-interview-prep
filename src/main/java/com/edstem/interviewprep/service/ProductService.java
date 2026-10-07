@@ -53,10 +53,15 @@ public class ProductService {
         return ProductResponse.from(findProduct(id));
     }
 
+    /**
+     * The row lock makes a concurrent order wait for this update instead of having its reservation overwritten by
+     * the stock value read before it committed.
+     */
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#id")
     public ProductResponse update(Long id, UpdateProductRequest request) {
-        Product product = findProduct(id);
+        Product product = productRepository.findForUpdateById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(RESOURCE_NAME, id));
         product.update(request.name(), request.category(), request.price(), request.stock(), request.rating());
         return ProductResponse.from(product);
     }
@@ -64,7 +69,11 @@ public class ProductService {
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.PRODUCTS_CACHE, key = "#id")
     public void delete(Long id) {
-        productRepository.delete(findProduct(id));
+        Product product = findProduct(id);
+        if (productRepository.hasOrders(id)) {
+            throw new ResourceConflictException("Product %d has orders and cannot be deleted".formatted(id));
+        }
+        productRepository.delete(product);
     }
 
     /**
@@ -77,9 +86,11 @@ public class ProductService {
         if (productRepository.decrementStockIfAvailable(productId, quantity) > 0) {
             return;
         }
-        Product product = findProduct(productId);
-        throw new ResourceConflictException("Insufficient stock for product %d: requested %d, available %d"
-                .formatted(productId, quantity, product.getStock()));
+        if (!productRepository.existsById(productId)) {
+            throw new ResourceNotFoundException(RESOURCE_NAME, productId);
+        }
+        throw new ResourceConflictException(
+                "Insufficient stock for product %d: requested %d".formatted(productId, quantity));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

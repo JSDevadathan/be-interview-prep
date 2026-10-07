@@ -77,12 +77,16 @@ Any logged-in user can place orders against the product catalog and see or cance
 | `POST` | `/api/orders/{id}/cancel` | The customer who placed the order |
 
 ```bash
-curl -X POST localhost:8080/api/orders -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json'   -H 'Idempotency-Key: 6f1c2e9a-checkout-42'   -d '{"items": [{"productId": 1, "quantity": 2}, {"productId": 2, "quantity": 1}]}'
+curl -X POST localhost:8080/api/orders \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: 6f1c2e9a-checkout-42' \
+  -d '{"items": [{"productId": 1, "quantity": 2}, {"productId": 2, "quantity": 1}]}'
 ```
 
-An order lists 1 to 50 items, each a distinct `productId` with a `quantity` from 1 to 1000. It is all-or-nothing: every item's stock is reserved in one transaction, so if any item is short the whole order fails with `409` (`Insufficient stock for product 2: requested 3, available 1`) and no stock is taken. An unknown product returns `404`.
+An order lists 1 to 50 items, each a distinct `productId` with a `quantity` from 1 to 1000. It is all-or-nothing: every item's stock is reserved in one transaction, so if any item is short the whole order fails with `409` (`Insufficient stock for product 2: requested 3`) and no stock is taken. An unknown product returns `404`.
 
-**No overselling.** Each item is reserved with one conditional update, `stock = stock - n where stock >= n`. The database checks and decrements in a single locked step, so two orders can never both see the last unit. Items are reserved in product id order, so orders that share products cannot deadlock.
+**No overselling.** Each item is reserved with one conditional update, `stock = stock - n where stock >= n`. The database checks and decrements in a single locked step, so two orders can never both see the last unit. Items are reserved in product id order, so orders that share products cannot deadlock. An admin `PUT /api/products/{id}` locks the product row, so an order placed at the same moment waits and then reserves from the new stock instead of being overwritten. If a request waits too long for a lock, it returns `503` with `Retry-After`, and nothing is changed.
 
 **Retries.** The client generates a unique `Idempotency-Key` (for example a UUID) per order and sends the same key when it retries. Keys are scoped to the logged-in customer and backed by a unique constraint:
 
@@ -97,9 +101,9 @@ A new order returns `201` with a `Location` header. A missing or blank key retur
 
 **Cancelling** sets the order to `CANCELLED` and returns its stock. The order row is locked while this happens, so cancelling twice, even at the same moment, returns the stock only once. A second cancel returns the cancelled order with `200`.
 
-Placing or cancelling an order evicts the affected products from the lookup cache after the transaction commits, so `GET /api/products/{id}` always shows the current stock. A product that has orders cannot be deleted.
+Placing or cancelling an order evicts the affected products from the lookup cache after the transaction commits, so `GET /api/products/{id}` always shows the current stock. Deleting a product that has orders returns `409`.
 
-`OrderConcurrencyTest` fires 50 simultaneous orders at a product with stock 10 and checks that exactly 10 succeed and the stock ends at 0. It also fires 10 simultaneous copies of one request and checks that only one order is created. `OrderControllerIntegrationTest` covers retries, `409`, all-or-nothing, validation, cancelling and ownership over HTTP.
+`OrderConcurrencyTest` fires 50 simultaneous orders at a product with stock 10 and checks that exactly 10 succeed and the stock ends at 0. It also checks three more races: 10 simultaneous copies of one request create one order, 10 simultaneous cancels return the stock once, and an admin update cannot erase a reservation made while it runs. `OrderControllerIntegrationTest` covers retries, `409`, all-or-nothing, validation, cancelling and ownership over HTTP.
 
 ## Run the tests
 

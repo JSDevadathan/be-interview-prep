@@ -27,8 +27,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class OrderService {
 
-    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
-
     private static final String RESOURCE_NAME = "Order";
     private static final String ITEMS_FIELD = "items";
     private static final ChronoUnit DATABASE_TIMESTAMP_PRECISION = ChronoUnit.MICROS;
@@ -58,7 +56,6 @@ public class OrderService {
      * only one insert commit, and the loser rolls back and returns the winner's order.
      */
     public PlacedOrder place(String customerUsername, String idempotencyKey, CreateOrderRequest request) {
-        requireValidIdempotencyKey(idempotencyKey);
         List<OrderItemResponse> requestedItems = inProductOrder(request.items());
         Optional<PlacedOrder> replay = findReplay(customerUsername, idempotencyKey, requestedItems);
         if (replay.isPresent()) {
@@ -131,12 +128,5 @@ public class OrderService {
             throw new FieldValidationException(ITEMS_FIELD, "items must not list the same productId more than once");
         }
         return sorted;
-    }
-
-    private static void requireValidIdempotencyKey(String idempotencyKey) {
-        if (idempotencyKey.isBlank() || idempotencyKey.length() > CustomerOrder.IDEMPOTENCY_KEY_MAX_LENGTH) {
-            throw new FieldValidationException(IDEMPOTENCY_KEY_HEADER, "%s must be 1 to %d characters"
-                    .formatted(IDEMPOTENCY_KEY_HEADER, CustomerOrder.IDEMPOTENCY_KEY_MAX_LENGTH));
-        }
     }
 }

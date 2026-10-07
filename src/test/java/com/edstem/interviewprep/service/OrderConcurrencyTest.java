@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.edstem.interviewprep.common.error.ResourceConflictException;
 import com.edstem.interviewprep.dto.CreateOrderRequest;
 import com.edstem.interviewprep.dto.OrderItemRequest;
+import com.edstem.interviewprep.dto.OrderResponse;
+import com.edstem.interviewprep.dto.UpdateProductRequest;
+import com.edstem.interviewprep.enums.OrderStatus;
 import com.edstem.interviewprep.dto.PlacedOrder;
 import com.edstem.interviewprep.entity.Product;
 import com.edstem.interviewprep.repository.CustomerOrderRepository;
@@ -24,6 +27,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 class OrderConcurrencyTest {
@@ -31,6 +35,7 @@ class OrderConcurrencyTest {
     private static final int SIMULTANEOUS_ORDERS = 50;
     private static final int INITIAL_STOCK = 10;
     private static final long TIMEOUT_SECONDS = 30;
+    private static final long BLOCKED_WAIT_MILLIS = 500;
 
     @Autowired
     private OrderService orderService;
@@ -40,6 +45,12 @@ class OrderConcurrencyTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     private final List<Long> createdProductIds = new ArrayList<>();
 
@@ -80,6 +91,65 @@ class OrderConcurrencyTest {
         assertThat(outcomes).filteredOn(outcome -> !outcome.placed().isReplay()).hasSize(1);
         assertThat(orderRepository.count()).isEqualTo(1);
         assertThat(productRepository.findById(productId).orElseThrow().getStock()).isEqualTo(INITIAL_STOCK - 2);
+    }
+
+    @Test
+    void simultaneousCancelsReturnStockOnce() throws Exception {
+        long productId = createProduct(INITIAL_STOCK);
+        PlacedOrder placed = orderService.place("customer", "cancel-key",
+                new CreateOrderRequest(List.of(new OrderItemRequest(productId, 3))));
+        Long orderId = placed.order().id();
+        int simultaneousCancels = 10;
+
+        List<Outcome> outcomes = runSimultaneously(simultaneousCancels, attempt -> () -> {
+            OrderResponse cancelled = orderService.cancel("customer", orderId);
+            assertThat(cancelled.status()).isEqualTo(OrderStatus.CANCELLED);
+            return placed;
+        });
+
+        assertThat(outcomes).allSatisfy(outcome -> assertThat(outcome.isSuccess()).isTrue());
+        assertThat(productRepository.findById(productId).orElseThrow().getStock()).isEqualTo(INITIAL_STOCK);
+    }
+
+    /**
+     * The admin update reads the product, then holds its transaction open while an order tries to reserve stock.
+     * If the order could commit in that window, the admin's flush would write back the stock it read and erase
+     * the reservation.
+     */
+    @Test
+    void adminStockUpdateDoesNotEraseConcurrentReservation() throws Exception {
+        long productId = createProduct(INITIAL_STOCK);
+        Product product = productRepository.findById(productId).orElseThrow();
+        UpdateProductRequest rename = new UpdateProductRequest(
+                "Renamed Lamp", product.getCategory(), product.getPrice(), INITIAL_STOCK, product.getRating());
+        CreateOrderRequest oneUnit = new CreateOrderRequest(List.of(new OrderItemRequest(productId, 1)));
+        CountDownLatch adminHasReadProduct = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> adminUpdate = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                productService.update(productId, rename);
+                adminHasReadProduct.countDown();
+                pause(BLOCKED_WAIT_MILLIS);
+            }));
+            adminHasReadProduct.await(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Future<PlacedOrder> order = executor.submit(() -> orderService.place("customer", "during-update", oneUnit));
+
+            adminUpdate.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            order.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(productRepository.findById(productId).orElseThrow().getStock()).isEqualTo(INITIAL_STOCK - 1);
+    }
+
+    private static void pause(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while holding the admin transaction open", interrupted);
+        }
     }
 
     private interface AttemptFactory {

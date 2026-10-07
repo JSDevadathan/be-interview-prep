@@ -27,6 +27,8 @@ public class CustomerOrder {
 
     public static final int IDEMPOTENCY_KEY_MAX_LENGTH = 100;
 
+    private static final int STATUS_MAX_LENGTH = 20;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,7 +40,7 @@ public class CustomerOrder {
     private String idempotencyKey;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = STATUS_MAX_LENGTH)
     private OrderStatus status;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
