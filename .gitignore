@@ -40,3 +40,6 @@ coverage/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Assignment brief (local reference only)
+Backend_Interview_Prep_Assignment.pdf
