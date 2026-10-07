@@ -46,6 +46,26 @@ curl localhost:8080/api/users/me -H "Authorization: Bearer $TOKEN"
 
 A missing, invalid or expired token returns `401` and a missing role returns `403`. Both come back as `application/problem+json`.
 
+## Product catalog
+
+100 products are seeded at startup. Any logged-in user can read them; updating and deleting need ADMIN.
+
+| Method | Path | Access |
+|--------|------|--------|
+| `GET` | `/api/products` | Any logged-in user |
+| `GET` | `/api/products/{id}` | Any logged-in user |
+| `PUT` | `/api/products/{id}` | ADMIN only |
+| `DELETE` | `/api/products/{id}` | ADMIN only |
+
+The list takes `page` (from 0), `size` (default 20, capped at 100) and `sort` (`field,asc|desc`, repeatable, on `id`, `name`, `category`, `price`, `stock`, `rating` or `createdAt`). Optional filters combine freely: `category` (exact, case-insensitive), `minPrice`, `maxPrice`, `inStock=true` and `name` (substring, case-insensitive). The response holds `content`, `page`, `size`, `totalElements` and `totalPages`.
+
+```bash
+curl "localhost:8080/api/products?category=electronics&minPrice=100&maxPrice=450&inStock=true&name=smart&sort=price,desc" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Single-product lookups are cached in memory (Caffeine). An update or delete evicts the entry as soon as its transaction commits, so lookups after that never see the old product, even when one was loading it at the same moment. `ProductLookupCacheTest` proves the cache works by counting SQL statements with Hibernate statistics: five lookups of the same product run one query. `ProductLookupCacheConcurrencyTest` covers a lookup racing an update. The cache is local to each app instance, so running several instances would need a shared cache.
+
 ## Run the tests
 
 The tests use their own signing secret from `src/test/resources/config/application.properties`, so no environment variables are needed.
